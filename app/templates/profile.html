@@ -11,6 +11,19 @@
   <style>
     .success { color: green; }
     .error { color: red; }
+    /* Убираем обводку после выбора */
+    .btn:focus, .btn:active {
+      outline: none;
+      box-shadow: none;
+    }
+    input[type="checkbox"]:focus {
+      outline: none;
+    }
+    /* Добавляем границы к полям компьютеров */
+    #computerList .btn {
+      border: 1px solid #ced4da;
+      margin: 5px;
+    }
   </style>
 </head>
 <body>
@@ -51,29 +64,78 @@
         <textarea class="form-control" id="clipboardInput" name="text" rows="3" placeholder="Введите текст здесь..."></textarea>
       </div>
       <div class="form-group">
-        <label>Выберите номер компьютера:</label>
-        <div class="btn-group btn-group-toggle d-flex" data-toggle="buttons">
-          <label class="btn btn-outline-primary flex-fill">
-            <input type="radio" name="computer" value="1" autocomplete="off"> Компьютер 1
-          </label>
-          <label class="btn btn-outline-primary flex-fill">
-            <input type="radio" name="computer" value="2" autocomplete="off"> Компьютер 2
-          </label>
-          <label class="btn btn-outline-primary flex-fill">
-            <input type="radio" name="computer" value="3" autocomplete="off"> Компьютер 3
-          </label>
-          <label class="btn btn-outline-primary flex-fill">
-            <input type="radio" name="computer" value="4" autocomplete="off"> Компьютер 4
-          </label>
+        <label>Выберите номера компьютеров:</label>
+        <div id="computerList" class="btn-group btn-group-toggle d-flex" data-toggle="buttons">
+          <!-- Список компьютеров будет динамически обновляться здесь -->
         </div>
       </div>
       <button type="submit" class="btn btn-success btn-block">Отправить</button>
     </form>
+    <button id="refreshButton" class="btn btn-secondary btn-block mt-2">Обновить список компьютеров</button>
   </div>
 
   <!-- Подключение jQuery, Popper.js и Bootstrap JS -->
   <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+  <script>
+    // Функция для обновления списка компьютеров
+    function updateComputerList(showMessage = false) {
+      fetch('/api/v1/get_users') // Запрос к серверу для получения списка
+        .then(response => response.json())
+        .then(data => {
+          const computerList = document.getElementById('computerList');
+          computerList.innerHTML = ''; // Очищаем текущий список
+
+          data.forEach((computer, index) => {
+            const label = document.createElement('label');
+            label.className = 'btn btn-outline-primary flex-fill';
+            label.innerHTML = `
+              <input type="checkbox" name="computers" value="${computer}" autocomplete="off"> Компьютер ${index + 1}
+            `;
+            computerList.appendChild(label);
+          });
+
+          // Показываем сообщение только если showMessage = true
+          if (showMessage) {
+            const alertContainer = document.createElement('div');
+            alertContainer.className = 'alert alert-success alert-dismissible fade show';
+            alertContainer.role = 'alert';
+            alertContainer.innerHTML = `
+              Список хостов успешно обновлён
+              <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">×</span>
+              </button>
+            `;
+            // Вставляем сообщение перед формой в контейнере
+            document.querySelector('.container').insertBefore(alertContainer, document.querySelector('form'));
+          }
+        })
+        .catch(error => {
+          console.error('Ошибка при обновлении списка:', error);
+          // Добавляем сообщение об ошибке
+          const errorAlert = document.createElement('div');
+          errorAlert.className = 'alert alert-danger alert-dismissible fade show';
+          errorAlert.role = 'alert';
+          errorAlert.innerHTML = `
+            Ошибка при обновлении списка хостов
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+              <span aria-hidden="true">×</span>
+            </button>
+          `;
+          document.querySelector('.container').insertBefore(errorAlert, document.querySelector('form'));
+        });
+    }
+
+    // Загружаем список при открытии страницы без сообщения
+    window.onload = function() {
+      updateComputerList(false);
+    };
+
+    // Обновляем список с сообщением при нажатии кнопки "Обновить"
+    document.getElementById('refreshButton').addEventListener('click', function() {
+      updateComputerList(true);
+    });
+  </script>
 </body>
 </html>

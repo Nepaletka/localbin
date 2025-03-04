@@ -8,7 +8,7 @@ def main(host):
     """Check if a host is ready by sending HELLO and expecting READY."""
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.settimeout(3)
+            sock.settimeout(0.01)
             sock.connect((host, 9000))
             sock.sendall(b"HELLO")
             response = sock.recv(4096).decode('utf-8')

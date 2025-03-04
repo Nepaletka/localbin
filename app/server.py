@@ -1,6 +1,8 @@
 import json
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
+import ipaddress
 from functools import wraps
 from flask import Flask, render_template, request, redirect, session, url_for, jsonify, flash, get_flashed_messages
 import check_user
@@ -13,7 +15,7 @@ app = Flask(__name__)
 # Load secret key from environment variable for security
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'default_secret_key')
 
-HOSTS = ["127.0.0.1", "192.168.3.10"]
+HOSTS = ["127.0.0.1"]
 
 # Note: Passwords in users.json must be hashed using werkzeug.security.generate_password_hash
 def load_users():
@@ -29,6 +31,26 @@ def load_users():
         return None
     except Exception as e:
         logging.error("Unknown error loading users: %s", e)
+        return None
+def load_hosts():
+    global HOSTS
+    """Load the list of hosts from the hosts.json file."""
+    try:
+        with open('hosts.json', 'r', encoding='utf-8') as f:
+            hosts = json.load(f)
+            HOSTS = [str(ip) for ip in ipaddress.IPv4Network(hosts["addres"])]
+            return None
+    except FileNotFoundError:
+        logging.error("File hosts.json not found, you need configure some hosts:")
+        HOSTS = [str(ip) for ip in ipaddress.IPv4Network(input())]
+        return None
+    except json.JSONDecodeError:
+        logging.error("Error decoding JSON in hosts.json, you need configure some hosts:")
+        HOSTS = [str(ip) for ip in ipaddress.IPv4Network(input())]
+        return None
+    except Exception as e:
+        logging.error("Unknown error loading hosts: %s\nYou need configure some hosts:", e)
+        HOSTS = [str(ip) for ip in ipaddress.IPv4Network(input())]
         return None
 
 def login_required(f):
@@ -84,12 +106,9 @@ def login():
     return render_template('login.html', title='Sign In')
 
 def get_ready_hosts():
-    """Check host availability and return a list of ready hosts."""
-    ready_hosts = []
-    for host in HOSTS:
-        result = check_user.main(host)
-        if result:
-            ready_hosts.append(result)
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        results = list(executor.map(check_user.main, HOSTS))
+    ready_hosts = [host for host in results if host is not None]
     return ready_hosts
 
 @app.route("/api/v1/get_users", methods=['GET'])
@@ -105,29 +124,31 @@ def api_send_clipboard():
     """Send clipboard data to all ready hosts and redirect to profile with a message."""
     if request.method == 'GET':  # Debug mode
         clip = "AAAAAAAAA"
-        selected_computers = ["1"]
+        selected_computers = ["127.0.0.1"]
     else:
+        #print(request.form.getlist)
         selected_computers = request.form.getlist('computers')  # Получаем список выбранных компьютеров
-        print(not selected_computers)
         clip = request.form.get('text', '')
-        logging.info(request.form.get('computer'))
+        logging.info(request.form.get('computers'))
 
     # Если нет текста для отправки
     if not clip:
         flash("Нет текста для отправки", "error")
         return redirect(url_for('profile'))
 
-   # if not selected_computers:
-     #   flash("Нет выбраны компьютеры для отправки", "error")
-       # return redirect(url_for('profile'))
+    if not selected_computers:
+        flash("Нет выбраны компьютеры для отправки", "error")
+        return redirect(url_for('profile'))
 
     ready_hosts = get_ready_hosts()
     for host in ready_hosts:
-        if sender.send_clipboard_to_user(host, clip):
-            logging.info("Clipboard sent to %s successfully", host)
-        else:
-            logging.error("Failed to send clipboard to %s", host)
-            flash(f"Не удалось отправить буфер обмена на {host}", "error")
+        for sent in selected_computers:
+            if sent == host:
+                if sender.send_clipboard_to_user(host, clip):
+                    logging.info("Clipboard sent to %s successfully", host)
+                else:
+                    logging.error("Failed to send clipboard to %s", host)
+                    flash(f"Не удалось отправить буфер обмена на {host}", "error")
 
     # Сообщение об успешной отправке
     flash("Буфер обмена успешно отправлен на все готовые хосты", "success")
@@ -152,4 +173,6 @@ def hello4_world():
     return "<p>Hello, World!</p>"
 
 if __name__ == '__main__':
+    #HOSTS = [str(ip) for ip in ipaddress.IPv4Network(input())]
+    load_hosts()
     app.run(debug=True)
