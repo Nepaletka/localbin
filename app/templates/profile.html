@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Главная страница</title>
+  <title>Main page - LocalBin</title>
   <!-- Подключение Bootstrap CSS -->
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
   <!-- Подключение Font Awesome для иконок -->
@@ -70,6 +70,7 @@
         </div>
       </div>
       <button type="submit" class="btn btn-success btn-block">Отправить</button>
+      <button type="button" id="sendToAllButton" class="btn btn-primary btn-block mt-2">Отправить всем</button>
     </form>
     <button id="refreshButton" class="btn btn-secondary btn-block mt-2">Обновить список компьютеров</button>
   </div>
@@ -90,9 +91,8 @@
           data.forEach((computer, index) => {
             const label = document.createElement('label');
             label.className = 'btn btn-outline-primary flex-fill';
-            label.innerHTML = `
-              <input type="checkbox" name="computers" value="${computer}" autocomplete="off"> Компьютер ${index + 1}
-            `;
+            label.innerHTML = 
+              `<input type="checkbox" name="computers" value="${computer}" autocomplete="off"> Компьютер ${index + 1}`;
             computerList.appendChild(label);
           });
 
@@ -101,12 +101,11 @@
             const alertContainer = document.createElement('div');
             alertContainer.className = 'alert alert-success alert-dismissible fade show';
             alertContainer.role = 'alert';
-            alertContainer.innerHTML = `
-              Список хостов успешно обновлён
+            alertContainer.innerHTML = 
+              `Список хостов успешно обновлён
               <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                 <span aria-hidden="true">×</span>
-              </button>
-            `;
+              </button>`;
             // Вставляем сообщение перед формой в контейнере
             document.querySelector('.container').insertBefore(alertContainer, document.querySelector('form'));
           }
@@ -117,12 +116,11 @@
           const errorAlert = document.createElement('div');
           errorAlert.className = 'alert alert-danger alert-dismissible fade show';
           errorAlert.role = 'alert';
-          errorAlert.innerHTML = `
-            Ошибка при обновлении списка хостов
+          errorAlert.innerHTML = 
+            `Ошибка при обновлении списка хостов
             <button type="button" class="close" data-dismiss="alert" aria-label="Close">
               <span aria-hidden="true">×</span>
-            </button>
-          `;
+            </button>`;
           document.querySelector('.container').insertBefore(errorAlert, document.querySelector('form'));
         });
     }
@@ -135,6 +133,17 @@
     // Обновляем список с сообщением при нажатии кнопки "Обновить"
     document.getElementById('refreshButton').addEventListener('click', function() {
       updateComputerList(true);
+    });
+
+    // Обработчик для кнопки "Отправить всем"
+    document.getElementById('sendToAllButton').addEventListener('click', function() {
+      // Выбираем все чекбоксы в списке компьютеров
+      const checkboxes = document.querySelectorAll('#computerList input[type="checkbox"]');
+      checkboxes.forEach(checkbox => {
+        checkbox.checked = true; // Отмечаем все чекбоксы
+      });
+      // Отправляем форму
+      document.getElementById('clipboardForm').submit();
     });
   </script>
 </body>

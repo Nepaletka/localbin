@@ -1,11 +1,41 @@
 import sys
+import os
 import socket
 import logging
 from PyQt6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon, QMenu
 from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtCore import QThread, pyqtSignal, QObject, Qt
+from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
+
+# Функция для обеспечения единственного экземпляра приложения
+def is_another_instance_running(server_name):
+    socket = QLocalSocket()
+    socket.connectToServer(server_name)
+    if socket.waitForConnected(1000):
+        socket.close()
+        return True
+    return False
+
+SERVER_NAME = "LocalBinClientUniqueInstance"
+
+if is_another_instance_running(SERVER_NAME):
+    # Если экземпляр уже запущен, можно вывести сообщение или просто завершить программу.
+    QMessageBox.warning(None, "Уже запущено", "Приложение уже запущено!")
+    sys.exit(0)
+
+# Создаем локальный сервер, чтобы блокировать запуск других экземпляров
+local_server = QLocalServer()
+# Если ранее сервер не был корректно закрыт, может понадобиться удалить старый сокет
+if os.path.exists(SERVER_NAME):
+    try:
+        os.remove(SERVER_NAME)
+    except Exception as e:
+        logging.error("Не удалось удалить предыдущий сокет: %s", e)
+local_server.listen(SERVER_NAME)
+
+# Далее идет остальной код приложения
 
 class SocketListener(QObject):
     messageReceived = pyqtSignal(str, str)
@@ -89,17 +119,25 @@ class BackgroundClient(QObject):
         super().__init__()
         self.app = app
         self.trayIcon = QSystemTrayIcon(QIcon(icon_path))
-        self.trayIcon.setToolTip("Clipboard Client")
+        self.trayIcon.setToolTip("LocalBin Client")
         
+        # Создаем контекстное меню
         menu = QMenu()
+        
+        # Добавляем заголовок
+        title_action = QAction("LocalBin Client", self.app)
+        title_action.setEnabled(False)
+        menu.addAction(title_action)
+        menu.addSeparator()
+        
         restart_action = QAction("Перезапустить сервер", self.app)
         restart_action.triggered.connect(self.restart_server)
+        menu.addAction(restart_action)
         
         exit_action = QAction("Выход", self.app)
         exit_action.triggered.connect(self.exit_application)
-        
-        menu.addAction(restart_action)
         menu.addAction(exit_action)
+        
         self.trayIcon.setContextMenu(menu)
         self.trayIcon.show()
         
@@ -131,13 +169,17 @@ class BackgroundClient(QObject):
         else:
             logging.info("Обновление отклонено")
 
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     
-    if not QSystemTrayIcon.isSystemTrayAvailable():
-        QMessageBox.critical(None, "Ошибка", "Системный трей недоступен")
-        sys.exit(1)
-        
-    client = BackgroundClient(app, "icon.png")  # Укажите путь к иконке
+    icon_path = resource_path("icon.png")
+    client = BackgroundClient(app, icon_path)
     sys.exit(app.exec())
