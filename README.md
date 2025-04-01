@@ -31,7 +31,7 @@ FLASK_ENV: production
 FLASK_SECRET_KEY: mysecretkey
 ```
 
-4. Отредактируйте hosts.json и users.json
+4. Отредактировать hosts.json и users.json
 
 5. Запустить сервер:
 ```
