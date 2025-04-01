@@ -17,7 +17,7 @@ LocalBin - это Web-приложение для обменом буфера о
 
 1. Клонировать репозиторий:
 ```
-git clone [https://github.com/yourusername/nutro-bot.git](https://github.com/yourusername/nutro-bot.git)
+git clone https://github.com/Nepaletka/localbin.git
 ```
 
 2. Установить зависимости:
@@ -43,11 +43,10 @@ python server.py
 cd client
 python client
 ```
-или
 
+или
 ```
-cd dist
-client.exe
+https://github.com/Nepaletka/localbin/releases/download/v1.0.0/Client.exe
 ```
 
 ## Структура проекта
