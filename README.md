@@ -17,8 +17,7 @@ LocalBin - это Web-приложение для обменом буфера о
 
 1. Клонировать репозиторий:
 ```
-git clone https://github.com/yourusername/nutro-bot.git
-cd nutro-bot
+git clone [https://github.com/yourusername/nutro-bot.git](https://github.com/yourusername/nutro-bot.git)
 ```
 
 2. Установить зависимости:
@@ -32,9 +31,21 @@ FLASK_ENV: production
 FLASK_SECRET_KEY: mysecretkey
 ```
 
-4. Запустить бота:
+4. Запустить сервер:
 ```
+cd app
 python server.py
+```
+5. Запустить клиент:
+```
+cd client
+python client
+```
+или
+
+```
+cd dist
+client.exe
 ```
 
 ## Структура проекта
