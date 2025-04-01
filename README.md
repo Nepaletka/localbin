@@ -31,12 +31,14 @@ FLASK_ENV: production
 FLASK_SECRET_KEY: mysecretkey
 ```
 
-4. Запустить сервер:
+4. Отредактируйте hosts.json и users.json
+
+5. Запустить сервер:
 ```
 cd app
 python server.py
 ```
-5. Запустить клиент:
+6. Запустить клиент:
 ```
 cd client
 python client
