@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  shareclipboard:
+    build: .
+    network_mode: "host"
+    ports:
+      - "5000:80"
+      - "9000:9000"
+    environment:
+      FLASK_ENV: production
+      FLASK_SECRET_KEY: mysecretkey #CHANGE IT
+    restart: unless-stopped

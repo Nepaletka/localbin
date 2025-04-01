@@ -15,9 +15,9 @@ app = Flask(__name__)
 # Load secret key from environment variable for security
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'default_secret_key')
 
-HOSTS = ["127.0.0.1"]
+# Configure HOSTS from environment variable or configuration file path
+HOSTS = []
 
-# Note: Passwords in users.json must be hashed using werkzeug.security.generate_password_hash
 def load_users():
     """Load the list of users from the users.json file."""
     try:
@@ -25,33 +25,30 @@ def load_users():
             return json.load(f)
     except FileNotFoundError:
         logging.error("File users.json not found")
-        return None
+        return {}
     except json.JSONDecodeError:
         logging.error("Error decoding JSON in users.json")
-        return None
+        return {}
     except Exception as e:
         logging.error("Unknown error loading users: %s", e)
-        return None
+        return {}
+
 def load_hosts():
-    global HOSTS
     """Load the list of hosts from the hosts.json file."""
+    global HOSTS
     try:
         with open('hosts.json', 'r', encoding='utf-8') as f:
-            hosts = json.load(f)
-            HOSTS = [str(ip) for ip in ipaddress.IPv4Network(hosts["addres"])]
-            return None
+            hosts_config = json.load(f)
+            network = hosts_config.get("address")
+            if not network:
+                raise ValueError("Missing 'address' key in hosts.json")
+            HOSTS = [str(ip) for ip in ipaddress.IPv4Network(network)]
     except FileNotFoundError:
-        logging.error("File hosts.json not found, you need configure some hosts:")
-        HOSTS = [str(ip) for ip in ipaddress.IPv4Network(input())]
-        return None
-    except json.JSONDecodeError:
-        logging.error("Error decoding JSON in hosts.json, you need configure some hosts:")
-        HOSTS = [str(ip) for ip in ipaddress.IPv4Network(input())]
-        return None
+        logging.error("File hosts.json not found. Please provide a valid hosts configuration.")
+    except (json.JSONDecodeError, ValueError) as e:
+        logging.error("Error processing hosts.json: %s", e)
     except Exception as e:
-        logging.error("Unknown error loading hosts: %s\nYou need configure some hosts:", e)
-        HOSTS = [str(ip) for ip in ipaddress.IPv4Network(input())]
-        return None
+        logging.error("Unknown error loading hosts: %s", e)
 
 def login_required(f):
     @wraps(f)
@@ -79,8 +76,8 @@ def profile():
 @app.route('/logout')
 def logout():
     """Handle user logout."""
-    session.pop('username', None)  # Удаляем имя пользователя из сессии
-    return redirect(url_for('login'))  # Перенаправляем на страницу входа
+    session.pop('username', None)
+    return redirect(url_for('login'))
 
 @app.route("/login", methods=['GET', 'POST'])
 def login():
@@ -90,10 +87,9 @@ def login():
         password = request.form.get('password')
         
         users = load_users()
-        if users is None:
+        if not users:
             return render_template('login.html', title='Sign In', error="Ошибка загрузки данных пользователей.")
         
-        # Check username and password (hashed)
         if username in users and users[username].get('password') == password:
             session['username'] = username
             logging.info("User '%s' logged in successfully.", username)
@@ -116,41 +112,33 @@ def get_ready_hosts():
 def api_get_users():
     """Return a JSON list of ready hosts."""
     ready_hosts = get_ready_hosts()
-    return json.dumps(ready_hosts), 200, {'Content-Type': 'application/json'}
+    return jsonify(ready_hosts), 200
 
-@app.route("/api/v1/send_clipboard", methods=['POST', 'GET'])
+@app.route("/api/v1/send_clipboard", methods=['POST'])
 @login_required
 def api_send_clipboard():
     """Send clipboard data to all ready hosts and redirect to profile with a message."""
-    if request.method == 'GET':  # Debug mode
-        clip = "AAAAAAAAA"
-        selected_computers = ["127.0.0.1"]
-    else:
-        #print(request.form.getlist)
-        selected_computers = request.form.getlist('computers')  # Получаем список выбранных компьютеров
-        clip = request.form.get('text', '')
-        logging.info(request.form.get('computers'))
+    selected_computers = request.form.getlist('computers')
+    clip = request.form.get('text', '')
+    logging.info("Selected computers: %s", selected_computers)
 
-    # Если нет текста для отправки
     if not clip:
         flash("Нет текста для отправки", "error")
         return redirect(url_for('profile'))
 
     if not selected_computers:
-        flash("Нет выбраны компьютеры для отправки", "error")
+        flash("Нет выбранных компьютеров для отправки", "error")
         return redirect(url_for('profile'))
 
     ready_hosts = get_ready_hosts()
     for host in ready_hosts:
-        for sent in selected_computers:
-            if sent == host:
-                if sender.send_clipboard_to_user(host, clip):
-                    logging.info("Clipboard sent to %s successfully", host)
-                else:
-                    logging.error("Failed to send clipboard to %s", host)
-                    flash(f"Не удалось отправить буфер обмена на {host}", "error")
+        if host in selected_computers:
+            if sender.send_clipboard_to_user(host, clip):
+                logging.info("Clipboard sent to %s successfully", host)
+            else:
+                logging.error("Failed to send clipboard to %s", host)
+                flash(f"Не удалось отправить буфер обмена на {host}", "error")
 
-    # Сообщение об успешной отправке
     flash("Буфер обмена успешно отправлен на все готовые хосты", "success")
     return redirect(url_for('profile'))
 
@@ -173,6 +161,6 @@ def hello4_world():
     return "<p>Hello, World!</p>"
 
 if __name__ == '__main__':
-    #HOSTS = [str(ip) for ip in ipaddress.IPv4Network(input())]
     load_hosts()
-    app.run(debug=True)
+    # Для продакшена используйте WSGI-сервер (например, gunicorn)
+    app.run(host='0.0.0.0', port=5000)
